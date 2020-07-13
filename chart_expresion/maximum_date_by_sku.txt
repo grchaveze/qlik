@@ -1,5 +1,5 @@
 // expression that can return the maximum records of each sku, for example, obtain the current sale price of a certain item
 
-avg({<$(vsa_ea)>}If(@IdFecha=Aggr(NODISTINCT Max( @IdFecha),@IdProducto) and Floor([Fecha Desde])=Aggr(NODISTINCT Max( Floor([Fecha Desde])),@IdProducto)
+avg(If(@IdFecha=Aggr(NODISTINCT Max( @IdFecha),@IdProducto) and Floor([Fecha Desde])=Aggr(NODISTINCT Max( Floor([Fecha Desde])),@IdProducto)
 		,[Precio Venta]
         ,0))
