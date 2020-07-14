@@ -1,0 +1,14 @@
+// sean los canales de venta: NSR (VD y KIOSKO) y SR, la expresion de a continuación 
+// recupera los movimientos de un SKU en donde la venta de los canales no sea nula, o sea NSR>=0 y SR>=0
+// tambien se abordan los casos; NSR>=0 y SR=0 ; NSR=0 y SR>=0
+// la expresion es dinamica para cualquier seleccion del usuario
+
+SET vsa_ambos='<@IdProducto=p({<venta_vd={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>})*p({<venta_rt={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>}),$(vsa_fecha_max)>+<@IdProducto=p({<venta_nsrt={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>})*p({<venta_rt={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>}),$(vsa_fecha_max)>'
+SET vsa_vd='@IdProducto=p({<venta_vd={">0"},$(vcampos_excl),$(vsa_fecha_max)>})*e({<venta_rt={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>}),$(vsa_fecha_max)'
+SET vsa_nsrt='@IdProducto=p({<venta_nsrt={">0"},$(vcampos_excl),$(vsa_fecha_max)>})*e({<venta_rt={"*"}-{"0"},$(vcampos_excl),$(vsa_fecha_max)>}),$(vsa_fecha_max)'
+
+Sum({$(vsa_ambos)}venta_nsrt)+sum({$(vsa_ambos)}venta_vd)+sum({$(vsa_ambos)}venta_rt) // NSR>=0 y SR>=0
+
+Sum({<$(vsa_nsrt)>}venta_nsrt)+sum({<$(vsa_vd)>}venta_vd) // NSR>=0 y SR=0
+
+sum({<$(vsa_rt)>}venta_rt) // NSR=0 y SR>=0
