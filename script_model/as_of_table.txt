@@ -1,0 +1,205 @@
+// este código de calendario permite asociar un perioro de tiempo a n periodos de tiempo
+// pudiendo calcular metricas como las ultimas 4 semanas de venta promedio, o un acumulado de n periodos de tiempo hacia atras
+// permite realizar comparaciones de año anterior de fechas comerciales y equivalentes
+
+calendario_temp1:
+LOAD
+	'$(vfecha_carga_min)'+RowNo()-1 as [Fecha Num]
+AutoGenerate $(vfecha_carga_max)-$(vfecha_carga_min)+1
+;
+
+calendario_temp2:
+LOAD
+	[Fecha Num] as @IdFecha
+	,[Fecha Num]
+	,Date([Fecha Num],'DD-MM-YYYY') as Fecha
+	,Year([Fecha Num]) as Año
+	,Month([Fecha Num]) as Mes
+	,Num(Day([Fecha Num]),'00') as Día
+	,WeekYear([Fecha Num])&' - '&Num(Week([Fecha Num],0,4),'00') as [Año Semana]
+	,Num(Week([Fecha Num],0,4),'00') as Semana
+	,Date(MonthName([Fecha Num]),'YYYY - MMM') as [Año Mes]
+Resident calendario_temp1
+Where Exists(@IdFecha,[Fecha Num])
+;
+
+DROP Table calendario_temp1;
+
+//NoConcatenate
+calendario_temp3:
+LOAD 
+	@IdFecha
+	,[Fecha Num] as [Fecha Num O]
+	,Fecha as [Fecha O]
+	,Año as [Año O]
+	,Mes as [Mes O]
+	,Día as [Día O]
+    ,Semana as [Semana O]
+    ,[Año Mes] as [Año Mes O]
+    ,[Año Semana] as [Año Semana O]
+Resident calendario_temp2;
+Left Join(calendario_temp3) // ======== Cartesian product with itself ========
+LOAD 
+	@IdFecha as [@IdFecha E]
+	,[Fecha Num O] as [Fecha Num E]
+	,[Fecha O] as [Fecha E]
+	,[Año O] as [Año E]
+	,[Mes O] as [Mes E]
+	,[Día O] as [Día E]
+    ,[Semana O] as [Semana E]
+    ,[Año Mes O] as [Año Mes E]
+    ,[Año Semana O] as [Año Semana E]
+Resident calendario_temp3
+;
+Inner Join (calendario_temp3)
+LOAD
+	*
+	;
+LOAD 
+	*,
+	if(AddMonths([Fecha E],-11) <= [Fecha O],1,0)							as Flag,
+	if([Fecha E] = [Fecha O],'Current','AllPrevious') 						as dateType
+RESIDENT calendario_temp3
+WHERE [Fecha E] >= [Fecha O]
+;
+
+NoConcatenate
+calendario_temp4:
+LOAD Distinct
+	@IdFecha
+	,[Fecha Num E]
+	,[Fecha Num O]
+	,[Fecha E]
+	,[Fecha O]
+	,[Año E]
+	,[Año O]
+	,[Mes E]
+	,[Mes O]
+	,[Día E]
+	,[Día O]
+    ,[Semana E]
+    ,[Semana O]
+    ,[Año Mes E]
+    ,[Año Mes O]
+    ,[Año Semana E]
+    ,[Año Semana O]
+    ,'EA' as [Temporalidad]
+    ,'Calendario Convencional' as [Tipo Calendario]
+Resident calendario_temp3
+Order By [Fecha E], [Fecha O] desc
+;
+Concatenate(calendario_temp4)
+LOAD Distinct
+	If(Day(@IdFecha)='29' and Num(month(@IdFecha))='2'
+		,Null()
+		,Floor(AddMonths(Date(@IdFecha),-12))) as @IdFecha
+	,[Fecha Num E]
+	,[Fecha Num O]
+	,[Fecha E]
+	,[Fecha O]
+	,[Año E]
+	,[Año O]
+	,[Mes E]
+	,[Mes O]
+	,[Día E]
+	,[Día O]
+    ,[Semana E]
+    ,[Semana O]
+    ,[Año Mes E]
+    ,[Año Mes O]
+    ,[Año Semana E]
+    ,[Año Semana O]
+    ,'AA' as [Temporalidad]
+    ,'Calendario Convencional' as [Tipo Calendario]
+Resident calendario_temp4
+;
+Concatenate(calendario_temp4) // calendario comercial
+LOAD Distinct
+	@IdFecha
+	,[Fecha Num E]
+	,[Fecha Num O]
+	,[Fecha E]
+	,[Fecha O]
+	,[Año E]
+	,[Año O]
+	,[Mes E]
+	,[Mes O]
+	,[Día E]
+	,[Día O]
+    ,[Semana E]
+    ,[Semana O]
+    ,[Año Mes E]
+    ,[Año Mes O]
+    ,[Año Semana E]
+    ,[Año Semana O]
+    ,'EA' as [Temporalidad]
+    ,'Calendario Comercial' as [Tipo Calendario]
+Resident calendario_temp4
+Where [Temporalidad]='EA'
+	and [Tipo Calendario]='Calendario Convencional'
+;
+Concatenate(calendario_temp4) // calendario comercial
+LOAD Distinct
+	ApplyMap('mapp_fecha_comercial_aa',@IdFecha) as @IdFecha
+	,[Fecha Num E]
+	,[Fecha Num O]
+	,[Fecha E]
+	,[Fecha O]
+	,[Año E]
+	,[Año O]
+	,[Mes E]
+	,[Mes O]
+	,[Día E]
+	,[Día O]
+    ,[Semana E]
+    ,[Semana O]
+    ,[Año Mes E]
+    ,[Año Mes O]
+    ,[Año Semana E]
+    ,[Año Semana O]
+    ,'AA' as [Temporalidad]
+    ,'Calendario Comercial' as [Tipo Calendario]
+Resident calendario_temp4
+Where [Temporalidad]='EA'
+	and [Tipo Calendario]='Calendario Convencional'
+;
+
+NoConcatenate
+calendario_temp5:
+LOAD Distinct
+	@IdFecha
+	,[Fecha Num E] as [Fecha Num]
+//	,[Fecha Num O]
+	,[Fecha E] as Fecha
+//	,[Fecha O]
+	,[Año E] as Año
+//	,[Año O]
+	,[Mes E] as Mes
+//	,[Mes O]
+	,[Día E] as Día
+//	,[Día O]
+    ,[Semana E] as Semana
+//    ,[Semana O]
+    ,[Año Mes E] as [Año Mes]
+//    ,[Año Mes O]
+    ,[Año Semana E] as [Año Semana]
+//    ,[Año Semana O]
+    ,[Temporalidad]
+    ,[Tipo Calendario]
+	,AutoNumber([Fecha Num E])-AutoNumber([Fecha Num O]) as movil
+Resident calendario_temp4
+Order By [Fecha E], [Fecha O] desc
+;
+
+NoConcatenate
+calendario:
+LOAD Distinct
+	*
+Resident calendario_temp5;
+
+DROP Table 
+calendario_temp2
+,calendario_temp3
+,calendario_temp4
+,calendario_temp5
+;
