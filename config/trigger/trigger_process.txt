@@ -1,0 +1,282 @@
+// disparador que inicia el proceso de carga de un sistema
+
+Sub Inicial_Stock
+
+	//------------------------------------------------------------------
+	LET t	= 'Ultima_Fecha_Procesos_Stock'; 							// Tabla origen
+	LET l	= 'Ultima_Fecha_Procesos_Stock'; 							// Label tabla
+	LET q	= 'Ultima_Fecha_Procesos_Stock_$(vPais_Carga)'; 			// Tabla en Qlikview
+	SET d	= $(vPathQVDInventario)$(vPais_Carga)\; 					// Directorio
+	SET e	= '.qvd'; 													// Extensión
+	LET c	= 'Ultima Fecha Procesos- Stock'; 							// Definición
+	TRACE --------------------------------------------------------------;
+	TRACE Se Carga la tabla $(l) de la Tabla Fuente $(t)  $(vPais_Carga);
+	TRACE --------------------------------------------------------------;
+	//------------------------------------------------------------------
+
+	$(l):
+	LOAD
+		parameter 			as Proceso,
+		Max(datetime)		as Fecha_Proceso
+	From [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](qvd)
+	Where 
+		Match(parameter, $(vProcesos))
+		and Upper(status) = 'SUCCESS'
+	Group By 
+		parameter;
+
+	CALL crea_qvd ('$(t)','$(l)','$(q)','$(d)','$(e)','$(c)');
+
+End Sub
+
+SUB Disparador_Stock
+
+	LET vCargaInicial = If(IsNull(QvdCreateTime('$(vPathQVDInventario)$(vPais_Carga)\Ultima_Fecha_Procesos_Stock_$(vPais_Carga).qvd')),'Si','No');
+
+	Procesos:
+	LOAD
+		Concat(Chr(39)&Procesos&Chr(39),',')	as Procesos
+	FROM
+		[$(vs_PathExt_Inventario_Process)Proceso_Carga_Inventario.xlsx] (ooxml, embedded labels, table is Hoja1)
+	WHERE 
+		(Cod = '$(vPais_Carga)');
+
+	LET vProcesos = Peek('Procesos',0,'Procesos');
+
+	DROP Table Procesos;
+
+	IF '$(vCargaInicial)'='Si' then
+
+		CALL Inicial_Stock;
+
+	ELSE
+
+		LET vContador 	= 1;
+		LET vCargar 	= 1;
+
+		DO while vCargar=1
+
+			Temp:
+			LOAD
+				Proceso,
+				Fecha_Proceso
+			FROM [$(vPathQVDInventario)$(vPais_Carga)\Ultima_Fecha_Procesos_Stock_$(vPais_Carga).qvd](qvd);
+
+			Inner Join
+			LOAD
+				parameter 			as Proceso,
+				Max(datetime)		as Fecha_Fin_Proceso_Nuevo
+			FROM [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](QVD)
+			WHERE 
+				Match(parameter, $(vProcesos))
+				and Upper(status) = 'SUCCESS'			
+			GROUP BY 
+				parameter;
+				
+			Inner Join
+			LOAD
+				parameter 		as Proceso,
+				datetime		as Fecha_Fin_Proceso_Nuevo,
+				startdate		as Fecha_Inicio_Carga_Nuevo,
+				enddate			as Fecha_Fin_Carga_Nuevo
+			FROM [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](QVD)
+			WHERE 
+				Match(parameter, $(vProcesos))
+				and Upper(status) = 'SUCCESS';				
+
+			Flag:
+			LOAD
+				Proceso,
+				IF(
+					Floor(Fecha_Fin_Proceso_Nuevo) > Today() - 1 
+					Or 
+					(
+						Floor(Fecha_Fin_Proceso_Nuevo)		= Today() - 1
+						and Floor(Fecha_Inicio_Carga_Nuevo) <= Today() - 1 
+						and Floor(Fecha_Fin_Carga_Nuevo)	= Today() - 1
+					)
+					, 1
+					, 0
+				) as Flag
+			Resident Temp;
+
+			DROP Table Temp;
+
+			Let vCargar = If(Lookup('Flag','Flag',0,'Flag')=0,1,0);
+
+			IF '$(vCargar)' = 1 then
+
+				TRACE $(vContador): Cargando;
+				
+				SLEEP 600000;
+				
+				Let vContador = vContador +1;
+				
+			ENDIF;
+
+			DROP Table Flag;
+
+		LOOP;
+
+	ENDIF;
+
+
+End Sub
+
+Sub Inicial_Transaction
+
+		//------------------------------------------------------------------
+		LET t	='Ultima_Fecha_Procesos_Transaction'; 						// Tabla Origen
+		LET l	='Ultima_Fecha_Procesos_Transaction'; 						// Label tabla
+		LET q	='Ultima_Fecha_Procesos_Transaction_'&'$(vPais_Carga)'; 	// Tabla en Qlikview
+		SET d	=$(vPathQVDInventario)$(vPais_Carga)\; 						// Directorio
+		SET e	='.qvd'; 													// Extensión
+		LET c	='Ultima Fecha Procesos- Transacciones'; 					// Definición
+		TRACE --------------------------------------------------------------;
+		TRACE Se Carga la tabla $(l) de la Tabla Fuente $(t)  $(vPais_Carga);
+		TRACE --------------------------------------------------------------;
+		//------------------------------------------------------------------
+
+		$(l):
+		LOAD
+			parameter 			as Proceso,
+			Max(datetime)		as Fecha_Proceso
+		From [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](qvd)
+		Where 
+			Match(parameter, $(vProcesos))
+			and Upper(status) = 'SUCCESS'			
+		Group By 
+			parameter;
+
+		call crea_qvd ('$(t)','$(l)','$(q)','$(d)','$(e)','$(c)');
+
+End Sub
+
+Sub Disparador_Transaction
+
+	Let vCargaInicial = If(IsNull(QvdCreateTime('$(vPathQVDInventario)$(vPais_Carga)\Ultima_Fecha_Procesos_Transaction_$(vPais_Carga).qvd')),'Si','No');
+
+	Procesos:
+	LOAD
+		Concat(Chr(39)&Procesos&Chr(39),',') as Procesos
+	FROM
+		[$(vs_PathExt_Inventario_Process)Proceso_Carga_Inventario_Transaction.xlsx] (ooxml, embedded labels, table is Hoja2)
+	WHERE 
+		(Cod = '$(vPais_Carga)');
+
+	LET vProcesos = Peek('Procesos', 0,'Procesos');
+
+    trace '$(vProcesos)';
+	
+	DROP Table Procesos;
+
+	IF '$(vCargaInicial)'='Si' then
+
+		call Inicial_Transaction;
+
+	ELSE
+
+		LET vContador 	= 1;
+		LET vCargar 	= 1;
+
+		DO while vCargar=1
+
+			Temp:
+			LOAD
+				Proceso,
+				Fecha_Proceso
+			FROM
+			[$(vPathQVDInventario)$(vPais_Carga)\Ultima_Fecha_Procesos_Transaction_$(vPais_Carga).qvd]
+			(qvd);
+
+			Inner Join
+			LOAD
+				parameter 			as Proceso,
+				Max(datetime)		as Fecha_Fin_Proceso_Nuevo
+			FROM [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](QVD)
+			WHERE 
+				Match(parameter, $(vProcesos))
+				and Upper(status) = 'SUCCESS'
+			GROUP BY 
+				parameter;
+				
+			Inner Join
+			LOAD
+				parameter 		as Proceso,
+				datetime		as Fecha_Fin_Proceso_Nuevo,
+				startdate		as Fecha_Inicio_Carga_Nuevo,
+				enddate			as Fecha_Fin_Carga_Nuevo
+			FROM [$(vs_PathQVD_Procesos_Control)Process_Control.qvd](QVD)
+			WHERE 
+				Match(parameter, $(vProcesos))
+				and Upper(status) = 'SUCCESS';		
+
+			Flag:
+			LOAD
+				Proceso,
+				IF(
+					Floor(Fecha_Fin_Proceso_Nuevo) > Today() - 1 
+					// or 
+					// (
+						// Fecha_Fin_Proceso_Nuevo - 1 = Today() 
+						// and Fecha_Inicio_Carga_Nuevo = Today() - 1 
+						// and Fecha_Fin_Carga_Nuevo = Today() - 1
+					// )
+					, 1
+					, 0
+				)	as Flag
+			Resident Temp;
+
+			DROP Table Temp;
+
+			Let vCargar = If(Lookup('Flag','Flag',0,'Flag')=0,1,0);
+
+			IF '$(vCargar)' = 1 then
+
+				TRACE $(vContador): Cargando;
+				
+				SLEEP 600000;
+				
+				Let vContador = vContador + 1;
+			
+			ENDIF;
+
+			DROP Table Flag;
+
+		LOOP;
+
+	ENDIF;
+
+End Sub
+
+
+Sub Disparador(Metodo, Inicial)
+
+	If (Metodo = 'Stock') then
+	
+		If Inicial = 1 Then
+		
+			Call Inicial_Stock;
+			
+		else
+		
+			Call Disparador_Stock;
+			
+		End if
+		
+	else
+	
+		If Inicial = 1 Then
+		
+			Call Inicial_Transaction;
+			
+		else
+		
+			Call Disparador_Transaction;
+			
+		End if
+		
+	end if;
+	
+End Sub
+
