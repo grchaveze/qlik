@@ -1,0 +1,122 @@
+// t: Tabla origen; l: Label tabla; q: Tabla en Qlikview, d: directorio qvd, e: extensión, c: definición
+sub crea_qvd (t,l,q,d,e,c)		
+	if q = '' or isnull(q) then
+		q = t
+	endif
+	let n = NoOfRows('$(l)');
+	
+	Tablas:
+	Load
+		rowno()										as ID,
+		'$(t)' 										as Tabla,
+		'$(c)'										as Definicion,
+		if('$(n)' = '','-','$(d)')							as [Path QVD],		
+		if('$(n)' = '','-','$(q)$(e)')							as [Archivo QVD],
+		'$(n)' 										as [N° de Registros],
+		Date('$(vIni)','DD-MM-YY')							as Fecha_Est,
+		now() 										as [Fecha Actualización],
+		Time(rangemax('$(vIni)','$(vFin)'))						as HoraInicio,
+		interval(now() - rangemax('$(vIni)','$(vFin)')) 				as Tiempo
+	autogenerate(1);
+	
+	Let vFin = now();
+	
+	if not isnull(n) then
+		
+		if SubStringCount(e,'.txt') > 0 then
+			
+			if len(e) > 4 then
+
+			Let del = Right(e,1);
+			Let e = PurgeChar(e,del);
+			Store [$(l)] into [$(d)$(q)$(e)] (delimiter is  '$(del)');
+
+			else
+			
+			Store [$(l)] into [$(d)$(q)$(e)] (delimiter is  '|');
+
+			endif
+
+			drop table [$(l)];
+
+		else
+		
+			Store [$(l)] into [$(d)$(q)$(e)];
+			drop table [$(l)];
+		
+		endif
+	
+	Let vID = peek('ID',-1,'Tablas');
+		
+	QVDs:
+	Load
+		ID,
+		now() 										as [Fecha Creación QVD],
+		Time(now())									as HoraFin,
+		FileSize('$(d)$(q)$(e)')							as Tamaño			
+	resident Tablas
+	where ID = $(vID);
+
+	endif
+		
+end sub
+
+sub crea_qvd2 (t,l,q,d,e,c)
+	if q = '' or isnull(q) then
+		q = t
+	endif
+
+	let n = NoOfRows('$(l)');
+	
+	Tablas:
+	Load
+		rowno()							as ID,
+		'$(t)' 							as Tabla,
+		'$(c)'							as Definicion,
+		if('$(n)' = '','-','$(d)')				as [Path QVD],		
+		if('$(n)' = '','-','$(q)$(e)')				as [Archivo QVD],
+		'$(n)' 							as [N° de Registros],
+		Date('$(vIni)','DD-MM-YY')				as Fecha_Est,
+		now() 							as [Fecha Actualización],
+		Time(rangemax('$(vIni)','$(vFin)'))			as HoraInicio,
+		interval(now() - rangemax('$(vIni)','$(vFin)')) 	as Tiempo
+	autogenerate(1);
+	
+	Let vFin = now();
+	
+	if not isnull(n) then
+		
+		if SubStringCount(e,'.txt') > 0 then
+			
+			if len(e) > 4 then
+
+			Let del = Right(e,1);
+			Let e = PurgeChar(e,del);
+			
+			Store [$(l)] into [$(d)$(q)$(e)] (delimiter is  '$(del)');
+
+			else
+			
+			Store [$(l)] into [$(d)$(q)$(e)] (delimiter is  '|');
+
+			endif
+
+		else
+		
+			Store [$(l)] into [$(d)$(q)$(e)];
+		
+		endif
+	
+	Let vID = peek('ID',-1,'Tablas');
+		
+	QVDs:
+	Load
+		ID,
+		now() 										as [Fecha Creación QVD],
+		Time(now())									as HoraFin,
+		FileSize('$(d)$(q)$(e)')							as Tamaño			
+	resident Tablas
+	where ID = $(vID);
+
+	endif
+end sub
